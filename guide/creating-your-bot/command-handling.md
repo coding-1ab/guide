@@ -1,17 +1,98 @@
-# Command handling
+# 명령어 만들기
 
-Unless your bot project is a small one, it's not a very good idea to have a single file with a giant `if`/`else if` chain for commands. If you want to implement features into your bot and make your development process a lot less painful, you'll want to implement a command handler. Let's get started on that!
+::: 팁
+이 페이지는 [이전 페이지](/creating-your-bot/)의 코드를 기반으로 합니다.
+:::
 
-Here are the base files and code we'll be using:
+<DiscordMessages>
+	<DiscordMessage profile="bot">
+		<template #interactions>
+			<DiscordInteraction profile="user" :command="true">ping!</DiscordInteraction>
+		</template>
+		pong!
+	</DiscordMessage>
+</DiscordMessages>
 
-:::: code-group
-::: code-group-item index.js
+Discord를 통해 개발자는 [슬래시 커맨드](https://discord.com/developers/docs/interactions/application-commands)을 등록할 수 있으며, 이는 사용자에게 애플리케이션과 직접 상호작용할 수 있는 최고 수준의 방법을 제공합니다. 명령에 응답하게 만드려면 먼저 명령을 등록해야 합니다.
+
+## 명령어 등록
+
+이 섹션에서는 시작하는 데 필요한 최소한의 내용만 다루지만 자세한 내용은 [슬래시 명령 등록에 대한 자세한 페이지](/interactions/registering-slash-commands.md)를 참조하세요. 길드 명령, 전역 명령, 옵션, 옵션 유형 및 선택 사항을 다룹니다.
+
+### Command deployment script
+
+프로젝트 디렉토리에 `deploy-commands.js` 파일을 만듭니다. 이 파일은 봇 애플리케이션에 대한 슬래시 명령을 등록하고 업데이트하는 데 사용됩니다.
+
+먼저, [`@discordjs/builders`](https://github.com/discordjs/builders), [`@discordjs/rest`](https://github.com/discordjs/discord.js-modules/blob/main/packages/rest/), 그리고 [`discord-api-types`](https://github.com/discordjs/discord-api-types/)를 설치해야 합니다.
+
+```sh:no-line-numbers
+npm install @discordjs/builders @discordjs/rest discord-api-types
+```
+다음은 사용할 수 있는 배포 스크립트입니다. 다음 변수에 중점을 둡니다.
+
+- `clientId`: 클라이언트의 id
+- `guildId`: 개발하고 테스트 할 서버의 id
+- `commands`: 등록할 명령의 리스트. `@discordjs/builders` 의 [슬래시 명령 빌더](/popular-topics/builders.md#slash-command-builders)는 명령에 대한 데이터를 빌드하는 데 사용됩니다.
+
+::: 팁
+클라이언트 및 서버 ID를 얻으려면 Discord를 열고 설정으로 이동하십시오. "고급" 페이지에서 "개발자 모드"를 켭니다. 이렇게 하면 서버 아이콘, 사용자 프로필 등을 마우스 오른쪽 버튼으로 클릭할 때 우클릭 메뉴에서 "ID 복사" 버튼이 활성화됩니다.
+:::
+
+:::: 코드 모음
+::: code-group-item deploy-commands.js
 ```js
-const { Client, Intents } = require('discord.js');
-const { token } = require('./config.json');
+const { SlashCommandBuilder } = require('@discordjs/builders');
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
+const { clientId, guildId, token } = require('./config.json');
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+const commands = [
+	new SlashCommandBuilder().setName('ping').setDescription('pong! 이라고 대답합니다'),
+	new SlashCommandBuilder().setName('server').setDescription('유저의 정보와 함께 대답합니다'),
+	new SlashCommandBuilder().setName('user').setDescription('서버의 정보와 함께 대답합니다'),
+]
+	.map(command => command.toJSON());
 
+const rest = new REST({ version: '9' }).setToken(token);
+
+(async () => {
+	try {
+		await rest.put(
+			Routes.applicationGuildCommands(clientId, guildId),
+			{ body: commands },
+		);
+
+		console.log('애플리케이션 커맨드를 정상적으로 등록했습니다');
+	} catch (error) {
+		console.error(error);
+	}
+})();
+```
+:::
+::: code-group-item config.json
+```json {2-3}
+{
+	"clientId": "클라이언트 id",
+	"guildId": "서버 id",
+	"token": "토큰-붙여넣기"
+}
+```
+:::
+::::
+
+이 값을 채우고 나면 프로젝트 디렉토리에서 `node deploy-commands.js` 를 실행하여 단일 서버에 명령을 등록합니다. [전역적으로 명령 등록](/interactions/registering-slash-commands.md#global-commands)도 가능합니다.
+
+::: 팁
+`node deploy-commands.js`는 한 번만 실행하면 됩니다. 기존 명령을 추가하거나 편집하는 경우에만 다시 실행해야 합니다.
+:::
+
+## Replying to commands
+
+Once you've registered your commands, you can listen for interactions via <DocsLink path="class/Client?scrollTo=e-interactionCreate" /> in your `index.js` file.
+
+You should first check if an interation is a command via <DocsLink path="class/Interaction?scrollTo=isCommand" type="method">`.isCommand()`</DocsLink>, and then check the <DocsLink path="class/CommandInteraction?scrollTo=commandName">`.commandName`</DocsLink> property to know which command it is. You can respond to interactions with <DocsLink path="class/CommandInteraction?scrollTo=reply">`.reply()`</DocsLink>.
+
+```js {5-17}
 client.once('ready', () => {
 	console.log('Ready!');
 });
@@ -23,170 +104,104 @@ client.on('interactionCreate', async interaction => {
 
 	if (commandName === 'ping') {
 		await interaction.reply('Pong!');
-	} else if (commandName === 'beep') {
-		await interaction.reply('Boop!');
+	} else if (commandName === 'server') {
+		await interaction.reply('Server info.');
+	} else if (commandName === 'user') {
+		await interaction.reply('User info.');
 	}
 });
 
 client.login(token);
 ```
-:::
-::: code-group-item deploy-commands.js
-```sh:no-line-numbers
-npm install @discordjs/rest discord-api-types
-```
-```js
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
-const { clientId, guildId, token } = require('./config.json');
 
-const commands = [];
+### Server info command
 
-const rest = new REST({ version: '9' }).setToken(token);
+Note that servers are referred to as "guilds" in the Discord API and discord.js library. `interaction.guild` refers to the guild the interaction was sent in (a <DocsLink path="class/Guild" /> instance), which exposes properties such as `.name` or `.memberCount`.
 
-(async () => {
-	try {
-		await rest.put(
-			Routes.applicationGuildCommands(clientId, guildId),
-			{ body: commands },
-		);
-
-		console.log('Successfully registered application commands.');
-	} catch (error) {
-		console.error(error);
-	}
-})();
-```
-:::
-::: code-group-item config.json
-```json
-{
-	"clientId": "123456789012345678",
-	"guildId": "876543210987654321",
-	"token": "your-token-goes-here"
-}
-```
-:::
-::::
-
-## Individual command files
-
-Your project directory should look something like this:
-
-```:no-line-numbers
-discord-bot/
-├── node_modules
-├── config.json
-├── deploy-commands.js
-├── index.js
-├── package-lock.json
-└── package.json
-```
-
-Create a new folder named `commands`, which is where you'll store all of your commands.
-
-We'll be using utility methods from the [`@discordjs/builders`](https://github.com/discordjs/builders) package to build the slash command data, so open your terminal and install it.
-
-```sh:no-line-numbers
-npm install @discordjs/builders
-```
-
-Next, create a `commands/ping.js` file for your ping command:
-
-```js
-const { SlashCommandBuilder } = require('@discordjs/builders');
-
-module.exports = {
-	data: new SlashCommandBuilder()
-		.setName('ping')
-		.setDescription('Replies with Pong!'),
-	async execute(interaction) {
-		await interaction.reply('Pong!');
-	},
-};
-```
-
-You can go ahead and do the same for the rest of your commands, putting their respective blocks of code inside the `execute()` function.
-
-::: tip
-[`module.exports`](https://nodejs.org/api/modules.html#modules_module_exports) is how you export data in Node.js so that you can [`require()`](https://nodejs.org/api/modules.html#modules_require_id) it in other files.
-
-If you need to access your client instance from inside a command file, you can access it via `interaction.client`. If you need to access external files, packages, etc., you should `require()` them at the top of the file.
-:::
-
-## Reading command files
-
-In your `index.js` file, make these additions:
-
-```js {1-2,7}
-const fs = require('fs');
-const { Client, Collection, Intents } = require('discord.js');
-const { token } = require('./config.json');
-
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
-
-client.commands = new Collection();
-```
-
-::: tip
-[`fs`](https://nodejs.org/api/fs.html) is Node's native file system module. <DocsLink section="collection" path="class/Collection" /> is a class that extends JavaScript's native [`Map`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) class, and includes more extensive, useful functionality.
-:::
-
-This next step is how to dynamically retrieve your command files. The [`fs.readdirSync()`](https://nodejs.org/api/fs.html#fs_fs_readdirsync_path_options) method will return an array of all the file names in a directory, e.g. `['ping.js', 'beep.js']`. To ensure only command files get returned, use `Array.filter()` to leave out any non-JavaScript files from the array. With that array, loop over it and dynamically set your commands to the `client.commands` Collection.
-
-```js {2,4-9}
-client.commands = new Collection();
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-	const command = require(`./commands/${file}`);
-	// Set a new item in the Collection
-	// With the key as the command name and the value as the exported module
-	client.commands.set(command.data.name, command);
-}
-```
-
-Use the same approach for your `deploy-commands.js` file, but instead `.push()` to the `commands` array with the JSON data for each command.
-
-```js {1,7,9-12}
-const fs = require('fs');
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
-const { clientId, guildId, token } = require('./config.json');
-
-const commands = [];
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-	const command = require(`./commands/${file}`);
-	commands.push(command.data.toJSON());
-}
-```
-
-## Dynamically executing commands
-
-You can use the `client.commands` Collection setup to retrieve and execute your commands! Inside the `interactionCreate` event, delete the `if`/`else if` chain of commands and replace it with this:
-
-```js {4-13}
+```js {9}
 client.on('interactionCreate', async interaction => {
 	if (!interaction.isCommand()) return;
 
-	const command = client.commands.get(interaction.commandName);
+	const { commandName } = interaction;
 
-	if (!command) return;
-
-	try {
-		await command.execute(interaction);
-	} catch (error) {
-		console.error(error);
-		await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+	if (commandName === 'ping') {
+		await interaction.reply('Pong!');
+	} else if (commandName === 'server') {
+		await interaction.reply(`Server name: ${interaction.guild.name}\nTotal members: ${interaction.guild.memberCount}`);
+	} else if (commandName === 'user') {
+		await interaction.reply('User info.');
 	}
 });
 ```
 
-First, fetch the command in the Collection with that name and assign it to the variable `command`. If the command doesn't exist, it will return `undefined`, so exit early with `return`. If it does exist, call the command's `.execute()` method, and pass in the `interaction` variable as its argument. In case something goes wrong, log the error and report back to the member to let them know.
+<DiscordMessages>
+	<DiscordMessage profile="bot">
+		<template #interactions>
+			<DiscordInteraction profile="user" :command="true">server</DiscordInteraction>
+		</template>
+		Server name: Discord.js Guide
+		<br />
+		Total members: 2
+	</DiscordMessage>
+</DiscordMessages>
 
-And that's it! Whenever you want to add a new command, make a new file in your `commands` directory, name it the same as the slash command, and then do what you did for the other commands. Remember to run `node deploy-commands.js` to register your commands!
+You could also display the date the server was created, or the server's verification level. You would do those in the same manner–use `interaction.guild.createdAt` or `interaction.guild.verificationLevel`, respectively.
+
+::: tip
+Refer to the <DocsLink path="class/Guild" /> documentation for a list of all the available properties and methods!
+:::
+
+### User info command
+
+A "user" refers to a Discord user. `interaction.user` refers to the user the interaction was sent by (a <DocsLink path="class/User" /> instance), which exposes properties such as `.tag` or `.id`.
+
+```js {11}
+client.on('interactionCreate', async interaction => {
+	if (!interaction.isCommand()) return;
+
+	const { commandName } = interaction;
+
+	if (commandName === 'ping') {
+		await interaction.reply('Pong!');
+	} else if (commandName === 'server') {
+		await interaction.reply(`Server name: ${interaction.guild.name}\nTotal members: ${interaction.guild.memberCount}`);
+	} else if (commandName === 'user') {
+		await interaction.reply(`Your tag: ${interaction.user.tag}\nYour id: ${interaction.user.id}`);
+	}
+});
+```
+
+<DiscordMessages>
+	<DiscordMessage profile="bot">
+		<template #interactions>
+			<DiscordInteraction profile="user" :command="true">user</DiscordInteraction>
+		</template>
+		Your tag: User#0001
+		<br />
+		Your id: 123456789012345678
+	</DiscordMessage>
+</DiscordMessages>
+
+::: tip
+Refer to the <DocsLink path="class/User" /> documentation for a list of all the available properties and methods!
+:::
+
+And there you have it!
+
+## The problem with `if`/`else if`
+
+If you don't plan on making more than a couple commands, then using an `if`/`else if` chain is fine; however, this isn't always the case. Using a giant `if`/`else if` chain will only hinder your development process in the long run.
+
+Here's a small list of reasons why you shouldn't do so:
+
+* Takes longer to find a piece of code you want;
+* Easier to fall victim to [spaghetti code](https://en.wikipedia.org/wiki/Spaghetti_code);
+* Difficult to maintain as it grows;
+* Difficult to debug;
+* Difficult to organize;
+* General bad practice.
+
+Next, we'll be diving into something called a "command handler"–code that makes handling commands easier and much more efficient. This allows you to move your commands into individual files.
 
 ## Resulting code
 
