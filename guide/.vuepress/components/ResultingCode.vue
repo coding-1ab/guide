@@ -1,9 +1,8 @@
 <template>
 	<p>
-		If you want to compare your code to the code we've constructed so far, you can review it over on the GitHub repository
-		<a :href="githubLink" target="_blank" rel="noopener noreferrer">
-			here <OutboundLink />
-		</a>.
+		지금까지 만들어온 코드를 비교해보고 싶으시다면,
+		<a :href="githubLink" target="_blank" rel="noopener noreferrer">이 깃헙 리포지토리 <OutboundLink /></a>
+		에서 확인하실 수 있습니다.
 	</p>
 </template>
 

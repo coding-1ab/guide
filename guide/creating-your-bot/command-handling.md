@@ -1,3 +1,4 @@
+
 # 명령어 핸들링
 
 봇이 어느 정도 커지면, 파일 하나에 모든 명령어를 엄청 많은 `if`/`else if`로 처리하는 것은 좋지 않아요. 봇에 새 기능을 적용하고 개발을 훨씬 쉽게 하려면 명령어 핸들러를 적용해야 해요. 그럼 지금 해 봐요!
@@ -6,6 +7,7 @@
 
 :::: code-group
 ::: code-group-item index.js
+
 ```js
 const { Client, Intents } = require('discord.js');
 const { token } = require('./config.json');
@@ -30,11 +32,14 @@ client.on('interactionCreate', async interaction => {
 
 client.login(token);
 ```
+
 :::
 ::: code-group-item deploy-commands.js
+
 ```sh:no-line-numbers
 npm i --save @discordjs/rest discord-api-types
 ```
+
 ```js
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
@@ -57,8 +62,10 @@ const rest = new REST({ version: '9' }).setToken(token);
 	}
 })();
 ```
+
 :::
 ::: code-group-item config.json
+
 ```json
 {
 	"clientId": "123456789012345678",
@@ -66,6 +73,7 @@ const rest = new REST({ version: '9' }).setToken(token);
 	"token": "여기에 토큰 입력"
 }
 ```
+
 :::
 ::::
 
@@ -92,6 +100,7 @@ npm i --save @discordjs/builders
 ```
 
 다음으로, ping 명령어에 대한 `commands/ping.js` 파일을 만드세요:
+
 ```js
 const { SlashCommandBuilder } = require('@discordjs/builders');
 
@@ -146,7 +155,6 @@ for (const file of commandFiles) {
 ```
 
  `deploy-commands.js` 파일에서도 비슷하게 하되, 대신 `commands` 배열에 각 명령어에 대한 JSON 데이터를 `.push()`합니다. 
-
 ```js {1,7,9-12}
 const fs = require('fs');
 const { REST } = require('@discordjs/rest');
@@ -181,6 +189,7 @@ client.on('interactionCreate', async interaction => {
 		await interaction.reply({ content: '명령어를 실행하는 동안 에러가 발생했어요.', ephemeral: true });
 	}
 });
+
 ```
 
 먼저 Collection에서 입력한 명령어의 이름에 해당하는 명령어를 가져와서 `command` 변수에 할당합니다. 명령어가 없으면 `undefined`를 리턴하기 때문에, 이 경우 `return`을 통해 나머지 코드를 실행하지 않습니다. 명령어가 존재한다면 그 명령어의 `.execute()` 함수를 실행하면서 `interaction` 변수를 파라미터로 넘깁니다. 뭔가가 잘못되면 에러를 로그하고 명령어를 실행한 멤버에게 그 사실을 알립니다.
