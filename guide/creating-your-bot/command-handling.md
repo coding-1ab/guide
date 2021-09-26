@@ -37,7 +37,7 @@ client.login(token);
 ::: code-group-item deploy-commands.js
 
 ```sh:no-line-numbers
-npm i --save @discordjs/rest discord-api-types
+npm i @discordjs/rest discord-api-types
 ```
 
 ```js
